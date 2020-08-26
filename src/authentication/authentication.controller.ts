@@ -33,7 +33,7 @@ class AuthenticationController implements Controller {
     try {
       const { cookie, user } = await this.authenticationService.register(userData);
       res.setHeader('Set-Cookie', [cookie]);
-      res.send(user);
+      res.json({ user });
     } catch (error) {
       next(error);
     }
@@ -73,3 +73,5 @@ class AuthenticationController implements Controller {
     return { expiresIn, token: jwt.sign(dataStoredInToken, secret, { expiresIn })};
   }
 }
+
+export default AuthenticationController;

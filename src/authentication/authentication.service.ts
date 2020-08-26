@@ -1,6 +1,7 @@
 import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import UserWithThatEmailAlreadyExistsException from "../exceptions/UserWithThatEmailAlreadyExistsException";
+import UserWithThatUsernameAlreadyExistsException from "../exceptions/UserWithThatUsernameAlreadyExistsException";
 import DataStoredInToken from "../interface/dataStoredInToken.interface";
 import TokenData from "../interface/tokenData.interface";
 import CreateUserDto from "../user/user.dto";
@@ -15,6 +16,11 @@ class AuthenticationService {
       await this.user.findOne({ email: userData.email })
     ) {
       throw new UserWithThatEmailAlreadyExistsException(userData.email);
+    }
+    if (
+      await this.user.findOne({ username: userData.username })
+    ) {
+      throw new UserWithThatUsernameAlreadyExistsException(userData.username);
     }
     const hashedPassword = await bcrypt.hash(userData.password, 10);
     const user = await this.user.create({

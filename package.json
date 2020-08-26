@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon ./src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +32,7 @@
     "class-validator": "^0.12.2",
     "cors": "^2.8.5",
     "dotenv": "^8.2.0",
+    "envalid": "^6.0.2",
     "express": "^4.17.1",
     "helmet": "^4.1.0",
     "jsonwebtoken": "^8.5.1",

@@ -24,7 +24,7 @@ class UserController implements Controller {
     const userQuery = this.user.findById(id);
     const user = await userQuery;
     if (user) {
-      response.send(user.profile);
+      response.send({ profile: user.profile });
     } else {
       next(new UserNotFoundException(id));
     }
