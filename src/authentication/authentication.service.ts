@@ -12,14 +12,12 @@ class AuthenticationService {
   public user = userModel;
 
   public async register(userData: CreateUserDto) {
-    if (
-      await this.user.findOne({ email: userData.email })
-    ) {
+    const userWithEmail = await this.user.findOne({ email: userData.email });
+    const userWithUsername = await this.user.findOne({ username: userData.username });
+    if (userWithEmail) {
       throw new UserWithThatEmailAlreadyExistsException(userData.email);
     }
-    if (
-      await this.user.findOne({ username: userData.username })
-    ) {
+    if (userWithUsername) {
       throw new UserWithThatUsernameAlreadyExistsException(userData.username);
     }
     const hashedPassword = await bcrypt.hash(userData.password, 10);
@@ -28,12 +26,7 @@ class AuthenticationService {
       password: hashedPassword
     });
     const tokenData = this.createToken(user);
-    const cookie = this.createCookie(tokenData);
-    return { cookie, user };
-  }
-
-  private createCookie(tokenData: TokenData) {
-    return `Authorization=${tokenData.token}; HttpOnly; Max-age=${tokenData.expiresIn}`;
+    return { tokenData };
   }
 
   private createToken(user: User): TokenData {
