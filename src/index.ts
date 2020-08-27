@@ -11,4 +11,7 @@ const app = new App([
   new UserController()
 ]);
 
+export const redisClient = app.getRedisClient();
+export const currentApp = app.getServer();
+
 app.listen();

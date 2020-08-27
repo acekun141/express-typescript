@@ -6,6 +6,8 @@ function validateEnv() {
     MONGO_USER: str(),
     MONGO_PASSWORD: str(),
     MONGO_PATH: str(),
+    REDIS_HOST: str(),
+    REDIS_PORT: port(),
     PORT: port()
   })
 }
