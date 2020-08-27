@@ -4,18 +4,21 @@ import * as jwt from "jsonwebtoken";
 import * as uuid from "uuid";
 import * as expressUseragent from "express-useragent";
 import WrongCredentialsException from "../exceptions/WrongCredentialsException";
+import TokenNotFoundException from "../exceptions/TokenNotFoundException";
 import Controller from "../interface/controller.interface";
 import DataStoredInAccessToken from "../interface/dataStoredInAccessToken.interface";
 import DataStoredInRefreshToken from "../interface/dataStoredInRefreshToken.interface";
 import TokenData from "../interface/tokenData.interface";
 import validationMiddleware from "../middleware/validation.middleware";
+import authMiddleware from "../middleware/auth.middleware";
 import CreateUserDto from "../user/user.dto";
 import User from "../user/user.interface";
+import RequestWithUser from "../interface/requestWithUser.interface";
 import userModel from "../user/user.model";
 import AuthenticationService from "./authentication.service";
 import LogInDto from "./logIn.dto";
+import TokenDto from "./token.dto";
 import { redisClient } from "../index";
-import authMiddleware from "../middleware/auth.middleware";
 
 class AuthenticationController implements Controller {
   public path = '/auth';
@@ -32,6 +35,7 @@ class AuthenticationController implements Controller {
     this.router.post(`${this.path}/login`, validationMiddleware(LogInDto), expressUseragent.express(), this.loggingIn);
     this.router.post(`${this.path}/logout`, this.loggingOut);
     this.router.post(`${this.path}/refresh`, expressUseragent.express(), this.refreshing);
+    this.router.post(`${this.path}/logout/another`, validationMiddleware(TokenDto), authMiddleware, this.loggingOutAnother);
   }
 
   private registration = async (req: Request, res: Response, next: NextFunction) => {
@@ -74,6 +78,23 @@ class AuthenticationController implements Controller {
     }
   }
 
+  private loggingOutAnother = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    const { tokenId } = req.body;
+    redisClient.get(tokenId, (err, data) => {
+      if (err || !data) {
+        next(new TokenNotFoundException(tokenId));
+      } else {
+        const userId = JSON.parse(data).userId;
+        if (userId === req.user._id) {
+          redisClient.setex(tokenId, 1, "");
+          res.sendStatus(200);
+        } else {
+          next(new TokenNotFoundException(tokenId));
+        }
+      }
+    });
+  }
+
   private refreshing = async (req: Request & { useragent: any }, res: Response, next: NextFunction) => {
     try {
       const reqHeader = req.headers;
@@ -107,7 +128,9 @@ class AuthenticationController implements Controller {
       const refreshTokenExpires = 60*60*24*7; // a week
       const dataStoredInRefreshToken: DataStoredInRefreshToken = { tokenId, accessToken };
       const refreshToken = jwt.sign(dataStoredInRefreshToken, secret, { expiresIn: refreshTokenExpires });
+      // set new tokenId in redis
       redisClient.setex(tokenId, refreshTokenExpires, JSON.stringify(agentInfo));
+
       return { accessToken, refreshToken };
     } catch (error) {
       throw error;

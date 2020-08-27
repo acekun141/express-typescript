@@ -18,6 +18,7 @@ class UserController implements Controller {
   private initializeRoutes() {
     this.router.get(`${this.path}`, authMiddleware, this.getUserProfile);
     this.router.get(`${this.path}/:id`, authMiddleware, this.getUserById);
+    this.router.get(`${this.path}`, )
   }
 
   private getUserById = async (request: RequestWithUser, response: Response, next: NextFunction) => {
