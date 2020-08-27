@@ -1,6 +1,6 @@
 # express-typescript
 
-# Setup Env
+### Setup Env
 
 ```env
 JWT_SECRET="oibanoiladobankhongchoidodaybana"
@@ -12,7 +12,7 @@ REDIS_PORT=6379
 PORT=8888
 ```
 
-# Run dev
+### Run dev
 
 ```bash
 npm install
