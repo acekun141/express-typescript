@@ -7,8 +7,8 @@ import DataStoredInRefreshToken from "../interface/dataStoredInRefreshToken.inte
 import CreateUserDto from "../user/user.dto";
 import User from "../user/user.interface";
 import userModel from "../user/user.model";
-import { redisClient } from "../index";
 import { promisify } from "util";
+import { redisClient } from "../index";
 
 class AuthenticationService {
   public user = userModel;

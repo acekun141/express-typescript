@@ -1,29 +1,27 @@
 import * as bcrypt from "bcrypt";
 import { Request, Response, NextFunction, Router } from "express";
 import * as jwt from "jsonwebtoken";
-import * as uuid from "uuid";
 import * as expressUseragent from "express-useragent";
 import WrongCredentialsException from "../exceptions/WrongCredentialsException";
 import TokenNotFoundException from "../exceptions/TokenNotFoundException";
 import Controller from "../interface/controller.interface";
 import DataStoredInAccessToken from "../interface/dataStoredInAccessToken.interface";
 import DataStoredInRefreshToken from "../interface/dataStoredInRefreshToken.interface";
-import TokenData from "../interface/tokenData.interface";
 import validationMiddleware from "../middleware/validation.middleware";
 import authMiddleware from "../middleware/auth.middleware";
 import CreateUserDto from "../user/user.dto";
-import User from "../user/user.interface";
 import RequestWithUser from "../interface/requestWithUser.interface";
 import userModel from "../user/user.model";
 import AuthenticationService from "./authentication.service";
+import TokenService from "./token.service";
 import LogInDto from "./logIn.dto";
 import TokenDto from "./token.dto";
-import { redisClient } from "../index";
 
 class AuthenticationController implements Controller {
   public path = '/auth';
   public router = Router();
   private authenticationService = new AuthenticationService();
+  private tokenService = new TokenService();
   private user = userModel;
 
   constructor() {
@@ -58,7 +56,7 @@ class AuthenticationController implements Controller {
       );
       if (isPasswordMatching) {
         const agentInfo = {...req.useragent, userId: user._id};
-        const tokenData = this.createToken(user, agentInfo);
+        const tokenData = this.tokenService.createToken(user, agentInfo);
         res.json({ tokenData });
       }
     } else {
@@ -71,7 +69,7 @@ class AuthenticationController implements Controller {
       const reqHeader = req.headers;
       const tokenData = jwt.verify(reqHeader.authorization.split(" ")[1], process.env.JWT_SECRET) as DataStoredInAccessToken;
       // remove token in redis
-      redisClient.setex(tokenData.tokenId, 1, "");
+      this.tokenService.removeToken(tokenData.tokenId);
       res.sendStatus(200);
     } catch (error) {
       next(error);
@@ -80,19 +78,18 @@ class AuthenticationController implements Controller {
 
   private loggingOutAnother = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     const { tokenId } = req.body;
-    redisClient.get(tokenId, (err, data) => {
-      if (err || !data) {
-        next(new TokenNotFoundException(tokenId));
+    try {
+      const tokenValue = await this.tokenService.getValueOfToken(tokenId);
+      const { userId } = JSON.parse(tokenValue);
+      if (userId === req.user._id) {
+        this.tokenService.removeToken(tokenId);
+        res.sendStatus(200);
       } else {
-        const userId = JSON.parse(data).userId;
-        if (userId === req.user._id) {
-          redisClient.setex(tokenId, 1, "");
-          res.sendStatus(200);
-        } else {
-          next(new TokenNotFoundException(tokenId));
-        }
+        next(new TokenNotFoundException(tokenId));
       }
-    });
+    } catch (error) {
+      next(error);
+    }
   }
 
   private refreshing = async (req: Request & { useragent: any }, res: Response, next: NextFunction) => {
@@ -106,34 +103,13 @@ class AuthenticationController implements Controller {
         const accessTokenData = jwt.verify(accessToken, process.env.JWT_SECRET) as DataStoredInAccessToken;
         const user = await this.authenticationService.refreshToken(accessToken, accessTokenData, refreshTokenData);
         const agentInfo = {...req.useragent, userId: user._id};
-        const tokenData = this.createToken(user, agentInfo);
+        const tokenData = this.tokenService.createToken(user, agentInfo);
         res.json({ tokenData });
       } else {
         next(new WrongCredentialsException())
       }
     } catch (error) {
       next(error);
-    }
-  }
-
-  private createToken(user: User, agentInfo: any): TokenData {
-    try {
-      const tokenId = uuid.v4();
-      const secret = process.env.JWT_SECRET;
-      // create access token;
-      const accessTokenExpires = 60*60; // an hour
-      const dataStoredInAccessToken: DataStoredInAccessToken = { tokenId, _id: user._id };
-      const accessToken = jwt.sign(dataStoredInAccessToken, secret, { expiresIn: accessTokenExpires });
-      // create refresh token
-      const refreshTokenExpires = 60*60*24*7; // a week
-      const dataStoredInRefreshToken: DataStoredInRefreshToken = { tokenId, accessToken };
-      const refreshToken = jwt.sign(dataStoredInRefreshToken, secret, { expiresIn: refreshTokenExpires });
-      // set new tokenId in redis
-      redisClient.setex(tokenId, refreshTokenExpires, JSON.stringify(agentInfo));
-
-      return { accessToken, refreshToken };
-    } catch (error) {
-      throw error;
     }
   }
 }
